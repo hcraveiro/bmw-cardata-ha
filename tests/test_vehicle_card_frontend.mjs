@@ -9,8 +9,8 @@ const sandbox = {
   HTMLElement: class {},
   customElements: { get: () => undefined, define: () => {} },
 };
-runInNewContext(`${source}\nglobalThis.__cardTest = { configuredAdditionalCards, additionalCardItems, tileGrid, BmwCardataVehicleCard };`, sandbox);
-const { configuredAdditionalCards, additionalCardItems, tileGrid, BmwCardataVehicleCard } = sandbox.__cardTest;
+runInNewContext(`${source}\nglobalThis.__cardTest = { configuredAdditionalCards, additionalCardItems, tileGrid, tileGridWithAdditional, BmwCardataVehicleCard };`, sandbox);
+const { configuredAdditionalCards, additionalCardItems, tileGrid, tileGridWithAdditional, BmwCardataVehicleCard } = sandbox.__cardTest;
 
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
@@ -67,4 +67,34 @@ test('card size grows only for valid additional tiles', () => {
   assert.ok(card.getCardSize() > baseSize);
   card.setConfig({ show_image: false, show_map: false, show_buttons: false, additional_cards: [] });
   assert.equal(card.getCardSize(), baseSize);
+});
+
+test('extra tiles continue in the same grid and occupy the next native slot', () => {
+  const builtin = [
+    { entity: 'sensor.location', label: 'Location', icon: 'mdi:map-marker', value: 'Home' },
+    { entity: 'sensor.range', label: 'Range', icon: 'mdi:arrow-left-right', value: '27 km' },
+    { entity: 'sensor.motion', label: 'Motion', icon: 'mdi:motion-sensor', value: '—' },
+  ];
+  const extras = additionalCardItems({ additional_cards: [
+    { entity: 'sensor.battery', name: 'Battery to Charge', icon: 'mdi:battery' },
+    { entity: 'sensor.charge_time', name: 'Charge remaining time', icon: 'mdi:timer' },
+  ] }, { states: {
+    'sensor.battery': { state: '9.40', attributes: { unit_of_measurement: 'kWh' } },
+    'sensor.charge_time': { state: 'Charging', attributes: {} },
+  } });
+  const html = tileGridWithAdditional(builtin, extras);
+  assert.equal(html.match(/class="tile-grid"/g)?.length, 1);
+  assert.equal(html.match(/class="tile-item"/g)?.length, 5);
+  assert.ok(html.indexOf('sensor.motion') < html.indexOf('sensor.battery'));
+  assert.ok(html.indexOf('sensor.battery') < html.indexOf('sensor.charge_time'));
+});
+
+test('additional tiles can render independently when built-in buttons are disabled', () => {
+  const extras = additionalCardItems({ additional_cards: [{ entity: 'sensor.battery' }] }, {
+    states: { 'sensor.battery': { state: '75', attributes: { unit_of_measurement: '%' } } },
+  });
+  const html = tileGridWithAdditional([], extras);
+  assert.equal(html.match(/class="tile-grid"/g)?.length, 1);
+  assert.equal(html.match(/class="tile-item"/g)?.length, 1);
+  assert.ok(html.includes('75 %'));
 });
