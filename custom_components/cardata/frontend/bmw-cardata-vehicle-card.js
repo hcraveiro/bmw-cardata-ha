@@ -109,6 +109,28 @@ const tileItem = ({ icon, label, value, entity, cls = "" }) => {
 
 const tileGrid = (items) => `<div class="tile-grid">${items.map(tileItem).join("")}</div>`;
 
+// Additional tiles can reference any Home Assistant entity, not only BMW entities.
+const configuredAdditionalCards = (cfg) =>
+  Array.isArray(cfg?.additional_cards)
+    ? cfg.additional_cards.filter(
+        (item) => item && typeof item.entity === "string" && item.entity.trim()
+      )
+    : [];
+
+const additionalCardItems = (cfg, hass) =>
+  configuredAdditionalCards(cfg).map((item) => {
+    const entity = item.entity.trim();
+    const stateObj = hass?.states?.[entity];
+    const name = typeof item.name === "string" ? item.name.trim() : "";
+    const icon = typeof item.icon === "string" ? item.icon.trim() : "";
+    return {
+      entity,
+      label: name || stateObj?.attributes?.friendly_name || entity,
+      icon: icon || stateObj?.attributes?.icon || "mdi:information-outline",
+      value: formatState(stateObj, hass),
+    };
+  });
+
 
 const hasUsableState = (stateObj) => {
   const state = normalizeState(stateObj);
@@ -230,6 +252,7 @@ const TRANSLATIONS = {
     "editor.show_buttons": "Show quick info buttons",
     "editor.leasing_entity": "Leasing sensor (optional)",
     "editor.leasing_tiles": "Leasing tiles (order = display order)",
+    "editor.additional_cards": "Additional entity tiles",
     "editor.language": "Card language",
     "editor.lang_auto": "Auto (Home Assistant language)",
   },
@@ -329,6 +352,7 @@ const TRANSLATIONS = {
     "editor.show_buttons": "Visa snabbinfoknappar",
     "editor.leasing_entity": "Leasing sensor (frivillig)",
     "editor.leasing_tiles": "Leasing info (ordning = visningsordning)",
+    "editor.additional_cards": "Extra entitetsrutor",
     "editor.language": "Kort språk",
     "editor.lang_auto": "Auto (Home Assistant språk)",
   },
@@ -428,6 +452,7 @@ const TRANSLATIONS = {
     "editor.show_buttons": "Schnellinfo-Kacheln anzeigen",
     "editor.leasing_entity": "Leasing-Sensor (optional)",
     "editor.leasing_tiles": "Leasing-Kacheln (Reihenfolge = Anzeige)",
+    "editor.additional_cards": "Zusätzliche Entitätskacheln",
     "editor.language": "Kartensprache",
     "editor.lang_auto": "Automatisch (HA-Sprache)",
   },
@@ -549,6 +574,8 @@ class BmwCardataVehicleCard extends HTMLElement {
         : DEFAULT_LEASE_TILES.length;
       size += Math.ceil(tileCount / 2) / 2;
     }
+    const additionalCount = configuredAdditionalCards(cfg).length;
+    if (additionalCount) size += Math.ceil(additionalCount / 2) * 1.3 + 0.4;
     return size;
   }
 
@@ -660,6 +687,20 @@ class BmwCardataVehicleCard extends HTMLElement {
               multiple: true,
               mode: "dropdown",
               options: LEASE_TILE_OPTIONS.map((opt) => ({ value: opt.value, label: t(opt.labelKey) })),
+            },
+          },
+        },
+        {
+          name: "additional_cards",
+          selector: {
+            object: {
+              multiple: true,
+              label_field: "entity",
+              fields: {
+                entity: { label: "Entity", required: true, selector: { entity: {} } },
+                name: { label: "Name", selector: { text: {} } },
+                icon: { label: "Icon", selector: { icon: {} } },
+              },
             },
           },
         },
@@ -945,6 +986,10 @@ class BmwCardataVehicleCard extends HTMLElement {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: var(--ha-space-2, 8px);
           }
+          #additional_cards:not(:empty) {
+            border-top: 1px solid var(--divider-color, var(--ha-card-border-color, #e0e0e0));
+            padding-top: var(--ha-space-3, 12px);
+          }
           .tile-item {
             --tile-color: var(--state-icon-color);
             --ha-ripple-color: var(--tile-color);
@@ -1036,6 +1081,7 @@ class BmwCardataVehicleCard extends HTMLElement {
               <div id="mini_map"></div>
               <div id="buttons"></div>
               <div id="leasing"></div>
+              <div id="additional_cards"></div>
             </main>
           </div>
         </ha-card>
@@ -1764,6 +1810,10 @@ class BmwCardataVehicleCard extends HTMLElement {
     } else {
       this._setHtml(leasingEl, "");
     }
+
+    const additionalEl = this.shadowRoot.getElementById("additional_cards");
+    const additionalItems = additionalCardItems(cfg, hass);
+    this._setHtml(additionalEl, additionalItems.length ? tileGrid(additionalItems) : "");
   }
 
   _renderMessage(message) {
@@ -1777,6 +1827,7 @@ class BmwCardataVehicleCard extends HTMLElement {
     const mapEl = this.shadowRoot.getElementById("mini_map");
     const buttonsEl = this.shadowRoot.getElementById("buttons");
     const leasingEl = this.shadowRoot.getElementById("leasing");
+    const additionalEl = this.shadowRoot.getElementById("additional_cards");
 
     this._setTitleVisible(true);
     nameEl.textContent = "BMW CarData";
@@ -1788,6 +1839,7 @@ class BmwCardataVehicleCard extends HTMLElement {
     this._setHtml(mapEl, "");
     this._setHtml(buttonsEl, "");
     this._setHtml(leasingEl, "");
+    this._setHtml(additionalEl, "");
   }
 }
 
