@@ -283,7 +283,7 @@ Available configuration options:
 | `show_buttons` | `true` | Quick-info tiles: location, range or fuel, motion, charging state or level, tyres (only when tyre sensors exist), and mileage |
 | `leasing_entity` | *(empty)* | Sensor entity for the optional leasing section (see below) |
 | `leasing_tiles` | `[lease_remaining, monthly_budget, projected, cost]` | Which leasing tiles to show, in order. Available: `lease_remaining`, `monthly_budget`, `monthly_average`, `km_balance`, `driven`, `target`, `total`, `lease_start`, `lease_end`, `projected`, `cost` |
-| `additional_cards` | *(empty)* | List of custom entity tiles, each with `entity` (required), `name` and `icon` (optional); shown after the built-in and leasing tiles. |
+| `additional_cards` | *(empty)* | List of custom entity tiles, each with `entity` (required), `name` and `icon` (optional); continues in the built-in quick-info grid without visual separation. |
 | `language` | `auto` | Card language: `auto` (follow the Home Assistant UI language), `en`, `de`, or `sv`. Values formatted by Home Assistant (numbers, units, entity states) follow your HA locale regardless. PRs adding languages are welcome. Each language is one dictionary block in `bmw-cardata-vehicle-card.js`. |
 
 Bar and indicator colors are plain hex codes, settable either in the card's GUI editor or directly in YAML. Leave any of them blank to keep the default look:
@@ -299,11 +299,12 @@ color_alert_border: "#f44336"
 
 ### Additional Entity Tiles (optional)
 
-Add `additional_cards` to show any Home Assistant entities below the vehicle card's
-built-in tiles (and the leasing section, if enabled). These tiles are part of
-the **same vehicle card**, so no `stack-in-card`, `button-card`, or
-`card_mod` is necessary. The card uses its existing two-column tile layout
-and responsive styling.
+Add `additional_cards` to show any Home Assistant entities in the same grid
+as the built-in quick-info tiles. The additional tiles start immediately after
+the standard tiles, filling an unfinished row first, with **no separator or
+extra section spacing**. No `stack-in-card`, `button-card`, or `card_mod` is
+necessary. The existing two-column layout and responsive styling are reused.
+If `show_buttons: false`, the additional tiles are still displayed on their own.
 
 ```yaml
 type: custom:bmw-cardata-vehicle-card
