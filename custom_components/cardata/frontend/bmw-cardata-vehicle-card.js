@@ -131,6 +131,9 @@ const additionalCardItems = (cfg, hass) =>
     };
   });
 
+// Append extra tiles to the native tile grid, filling its last row first.
+const tileGridWithAdditional = (nativeItems, additionalItems) =>
+  tileGrid([...nativeItems, ...additionalItems]);
 
 const hasUsableState = (stateObj) => {
   const state = normalizeState(stateObj);
@@ -575,7 +578,14 @@ class BmwCardataVehicleCard extends HTMLElement {
       size += Math.ceil(tileCount / 2) / 2;
     }
     const additionalCount = configuredAdditionalCards(cfg).length;
-    if (additionalCount) size += Math.ceil(additionalCount / 2) * 1.3 + 0.4;
+    if (additionalCount) {
+      // Built-in quick tiles usually occupy five slots; additional tiles fill
+      // the last free slot before introducing another grid row.
+      const showButtons = boolConfig(cfg, "show_buttons", true);
+      const baseRows = showButtons ? Math.ceil(5 / 2) : 0;
+      const totalRows = Math.ceil(((showButtons ? 5 : 0) + additionalCount) / 2);
+      size += Math.max(0, totalRows - baseRows) * 1.3;
+    }
     return size;
   }
 
@@ -986,10 +996,6 @@ class BmwCardataVehicleCard extends HTMLElement {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: var(--ha-space-2, 8px);
           }
-          #additional_cards:not(:empty) {
-            border-top: 1px solid var(--divider-color, var(--ha-card-border-color, #e0e0e0));
-            padding-top: var(--ha-space-3, 12px);
-          }
           .tile-item {
             --tile-color: var(--state-icon-color);
             --ha-ripple-color: var(--tile-color);
@@ -1318,6 +1324,7 @@ class BmwCardataVehicleCard extends HTMLElement {
     const showImage = boolConfig(cfg, "show_image", true);
     const showMap = boolConfig(cfg, "show_map", true);
     const showButtons = boolConfig(cfg, "show_buttons", true);
+    const additionalItems = additionalCardItems(cfg, hass);
     const mapEntityId = entities.device_tracker;
 
     const imageCropTop = Number.isFinite(Number(cfg.image_crop_top))
@@ -1702,7 +1709,10 @@ class BmwCardataVehicleCard extends HTMLElement {
 
       this._setHtml(
         buttonsEl,
-        tileGrid(quickItems.map((item) => ({ ...item, cls: item.alert ? "alert" : "" })))
+        tileGridWithAdditional(
+          quickItems.map((item) => ({ ...item, cls: item.alert ? "alert" : "" })),
+          additionalItems
+        )
       );
     } else {
       this._setHtml(buttonsEl, "");
@@ -1812,8 +1822,9 @@ class BmwCardataVehicleCard extends HTMLElement {
     }
 
     const additionalEl = this.shadowRoot.getElementById("additional_cards");
-    const additionalItems = additionalCardItems(cfg, hass);
-    this._setHtml(additionalEl, additionalItems.length ? tileGrid(additionalItems) : "");
+    // Keep extras visible even when the built-in quick tiles are disabled.
+    // With quick tiles enabled, both kinds already share the #buttons grid.
+    this._setHtml(additionalEl, !showButtons && additionalItems.length ? tileGrid(additionalItems) : "");
   }
 
   _renderMessage(message) {
